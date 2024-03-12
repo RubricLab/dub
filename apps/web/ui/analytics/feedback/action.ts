@@ -10,11 +10,13 @@ export async function submitFeedback(data: FormData) {
 
   const emailHtml = render(FeedbackEmail({ email, feedback }));
 
-  return await client.sendEmail({
+  if (!client) throw new Error("Email client not found. Please configure Postmark");
+
+  return await client?.sendEmail({
     From: "feedback@dub.co",
     To: "steven@dub.co",
     ...(email && { ReplyTo: email }),
     Subject: "🎉 New Feedback Received!",
     HtmlBody: emailHtml,
-  });
+  })
 }

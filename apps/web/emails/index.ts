@@ -2,7 +2,7 @@ import { render } from "@react-email/render";
 import { Client } from "postmark";
 import { JSXElementConstructor, ReactElement } from "react";
 
-export const client = new Client(process.env.POSTMARK_API_KEY as string);
+export const client = process.env.POSTMARK_API_KEY ? new Client(process.env.POSTMARK_API_KEY as string) : null;
 
 export const sendEmail = async ({
   email,
@@ -26,7 +26,7 @@ export const sendEmail = async ({
     return Promise.resolve();
   }
 
-  return client.sendEmail({
+  return client?.sendEmail({
     From:
       from || marketing
         ? "steven@ship.dub.co"
