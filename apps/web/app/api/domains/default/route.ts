@@ -11,7 +11,7 @@ export const GET = withAuth(async ({ project }) => {
       projectId: project.id,
     },
     select: {
-      rubriclink: true,
+      bartbartbartcom: true,
     },
   });
 
@@ -43,7 +43,7 @@ export const PUT = withAuth(async ({ req, project }) => {
       projectId: project.id,
     },
     data: {
-      rubriclink: defaultDomains.includes("rubric.link"),
+      bartbartbartcom: defaultDomains.includes("bartbartbart.com"),
     },
   });
 
