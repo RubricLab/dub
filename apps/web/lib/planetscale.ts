@@ -1,55 +1,81 @@
 import { nanoid } from "@dub/utils";
-import mysql, { OkPacket, ResultSetHeader } from 'mysql2/promise';
-import { FieldPacket, RowDataPacket } from 'mysql2/promise';
-import { DomainProps, ProjectProps, LinkProps } from "./types";
+import { connect } from "@planetscale/database";
+import { DomainProps, ProjectProps } from "./types";
 
-const DATABASE_URL = process.env.PLANETSCALE_DATABASE_URL || process.env.DATABASE_URL;
-const dbConfig = DATABASE_URL ? new URL(DATABASE_URL) : null;
+export const DATABASE_URL =
+  process.env.PLANETSCALE_DATABASE_URL || process.env.DATABASE_URL;
 
-const pool = mysql.createPool({
-  host: dbConfig?.hostname,
-  user: dbConfig?.username,
-  password: dbConfig?.password,
-  database: dbConfig?.pathname?.replace(/^\//, ''), // Remove the leading slash
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+export const pscale_config = {
+  url: DATABASE_URL,
+};
 
-type QueryResult = RowDataPacket[] | RowDataPacket[][] | OkPacket | OkPacket[] | ResultSetHeader;
+export const conn = connect(pscale_config);
 
-
-async function executeQuery<T>(query: string, params: Array<string | number>): Promise<T[] | null> {
+export const getProjectViaEdge = async (projectId: string) => {
   if (!DATABASE_URL) return null;
 
-  const [rows]: [QueryResult, FieldPacket[]] = await pool.execute(query, params);
+  const { rows } =
+    (await conn.execute("SELECT * FROM Project WHERE id = ?", [projectId])) ||
+    {};
 
-  return (rows as RowDataPacket[]) as T[];
-}
-
-export const getProjectViaEdge = async (projectId: string): Promise<ProjectProps | null> => {
-  const rows = await executeQuery<ProjectProps>("SELECT * FROM Project WHERE id = ?", [projectId]);
-  return rows && rows.length > 0 ? rows[0] : null;
+  return rows && Array.isArray(rows) && rows.length > 0
+    ? (rows[0] as ProjectProps)
+    : null;
 };
 
-export const getDomainViaEdge = async (domain: string): Promise<DomainProps | null> => {
-  const rows = await executeQuery<DomainProps>("SELECT * FROM Domain WHERE slug = ?", [domain]);
-  return rows && rows.length > 0 ? rows[0] : null;
+export const getDomainViaEdge = async (domain: string) => {
+  if (!DATABASE_URL) return null;
+
+  const { rows } =
+    (await conn.execute("SELECT * FROM Domain WHERE slug = ?", [domain])) || {};
+
+  return rows && Array.isArray(rows) && rows.length > 0
+    ? (rows[0] as DomainProps)
+    : null;
 };
 
-async function checkIfKeyExists(domain: string, key: string): Promise<boolean> {
-  const query = "SELECT 1 FROM Link WHERE domain = ? AND `key` = ? LIMIT 1";
-  const [rows]: [RowDataPacket[], FieldPacket[]] = await pool.execute(query, [domain, decodeURIComponent(key)]);
-  return rows.length > 0;
-}
+export const checkIfKeyExists = async (domain: string, key: string) => {
+  if (!DATABASE_URL) return null;
 
-export const getLinkViaEdge = async (domain: string, key: string): Promise<LinkProps | null> => {
-  const rows = await executeQuery<LinkProps>("SELECT * FROM Link WHERE domain = ? AND `key` = ?", [domain, decodeURIComponent(key)]);
-  return rows && rows.length > 0 ? rows[0] : null;
+  const { rows } =
+    (await conn.execute(
+      "SELECT 1 FROM Link WHERE domain = ? AND `key` = ? LIMIT 1",
+      [domain, decodeURIComponent(key)], // we need to make sure that the key is always decoded (cause that's how we store it in MySQL)
+    )) || {};
+
+  return rows && Array.isArray(rows) && rows.length > 0;
 };
 
-// The other functions like getDomainOrLink and getRandomKey can remain largely unchanged.
+export const getLinkViaEdge = async (domain: string, key: string) => {
+  if (!DATABASE_URL) return null;
 
+  const { rows } =
+    (await conn.execute(
+      "SELECT * FROM Link WHERE domain = ? AND `key` = ?",
+      [domain, decodeURIComponent(key)], // we need to make sure that the key is always decoded (cause that's how we store it in MySQL)
+    )) || {};
+
+  return rows && Array.isArray(rows) && rows.length > 0
+    ? (rows[0] as {
+        id: string;
+        domain: string;
+        key: string;
+        url: string;
+        proxy: number;
+        title: string;
+        description: string;
+        image: string;
+        rewrite: number;
+        password: string | null;
+        expiresAt: string | null;
+        ios: string | null;
+        android: string | null;
+        geo: object | null;
+        projectId: string;
+        publicStats: number;
+      })
+    : null;
+};
 
 export async function getDomainOrLink({
   domain,
